@@ -1,0 +1,25 @@
+{
+  "name": "Gwent: The Legendary Card Game – Score Tracker",
+  "short_name": "Gwent Score",
+  "description": "Score tracker for physical Gwent: The Legendary Card Game (1 or 2 players).",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#120c07",
+  "theme_color": "#120c07",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
