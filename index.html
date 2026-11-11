@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Gjør at nettsiden oppfører seg som en ekte app når man legger den på Hjem-skjermen på mobil -->
+    <meta name="theme-color" content="#120c07">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gwent Score">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Gwent: The Legendary Card Game – Score Tracker</title>
+    <!-- Kobler til vår Gwent-stilfil (style.css) -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- GWENT HEADER BANNER -->
+    <header class="gwent-header">
+        <div class="gwent-undertittel">The Witcher &bull; Wild Hunt</div>
+        <h1>GWENT</h1>
+        <div class="gwent-header-sub">&mdash; The Legendary Card Game &bull; Score Tracker &mdash;</div>
+    </header>
+
+    <!-- SETTINGS AND GLOBAL CONTROLS -->
+    <div class="boks">
+        <h2>&#9876;&#65039; Match Settings &amp; Battlefield Controls</h2>
+        
+        <div class="kontroll-linje">
+            <div>
+                <strong style="margin-right: 8px;">Player Mode:</strong>
+                <button id="btn-1-spiller" onclick="settAntallSpillere(1)">&#128100; 1 Player (Solo Board)</button>
+                <button id="btn-2-spillere" onclick="settAntallSpillere(2)">&#9876;&#65039; 2 Players (Versus)</button>
+            </div>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <label class="innstilling-label">
+                    <input type="checkbox" id="chk-vis-liv" checked onchange="oppdaterValgfrieFunksjoner()">
+                    Life Gems (Best of 3)
+                </label>
+                <label class="innstilling-label">
+                    <input type="checkbox" id="chk-vis-runder" checked onchange="oppdaterValgfrieFunksjoner()">
+                    Pass &amp; Round Controls
+                </label>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Weather Controls -->
+        <div class="kontroll-linje">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <strong style="margin-right: 4px;">Active Weather:</strong>
+                <button id="btn-vaer-melee" onclick="toggleVaer('melee')">&#10052;&#65039; Biting Frost (Close)</button>
+                <button id="btn-vaer-ranged" onclick="toggleVaer('ranged')">&#127787;&#65039; Impenetrable Fog (Ranged)</button>
+                <button id="btn-vaer-siege" onclick="toggleVaer('siege')">&#127783;&#65039; Torrential Rain (Siege)</button>
+                <button onclick="klartVaer()">&#9728;&#65039; Clear Weather</button>
+            </div>
+        </div>
+
+        <!-- Round & Match Controls -->
+        <div id="runde-kontroller" class="kontroll-linje" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(212, 175, 55, 0.25);">
+            <div>
+                <strong id="runde-overskrift" style="color: #f5d77f; font-family: 'Cinzel', Georgia, serif; font-size: 1.1rem;">Round 1</strong>
+                <span id="runde-status-melding" style="margin-left: 12px; color: #f2e6d0;"></span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button onclick="fullforRunde()">&#127937; End Round (Next Round)</button>
+                <button onclick="nyKamp()">&#128260; New Match (Reset All)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYER BOARDS RENDERED BY JAVASCRIPT -->
+    <div id="spillere-container" class="spillere-container"></div>
+
+    <!-- Kobler til JavaScript-motoren vår -->
+    <script src="script.js"></script>
+</body>
+</html>
