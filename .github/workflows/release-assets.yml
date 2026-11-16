@@ -1,0 +1,107 @@
+# Publishing a GitHub Release builds the Windows, Linux and Android apps from
+# the release tag and attaches them (plus SHA256SUMS) to that release.
+# Runs alongside release-pr.yml, which opens the develop -> main PR that deploys
+# the web build.
+#
+# Desktop executables are self-contained (embedded PCK, override.cfg ignored).
+# The Android APK is signed with the release key from these repository secrets
+# (Settings -> Secrets and variables -> Actions); without them it is skipped:
+#   ANDROID_KEYSTORE_BASE64    base64 of the release .keystore file
+#   ANDROID_KEYSTORE_ALIAS     key alias inside it
+#   ANDROID_KEYSTORE_PASSWORD  keystore / key password
+# Keep the keystore backed up: Android only accepts updates signed with the
+# same key.
+name: release-assets
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and attach binaries to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: ./.github/actions/setup-godot
+
+      - name: Import assets
+        run: godot --headless --path . --import
+
+      - name: Unit tests
+        run: godot --headless --path . --script res://tests/run_tests.gd
+
+      # Tag v2.3.4 -> Android versionName 2.3.4, versionCode 20304 (must grow
+      # with every release, or Android refuses the update).
+      - name: Version from tag
+        run: |
+          set -euo pipefail
+          NAME="${TAG#v}"
+          IFS=. read -r MA MI PA <<< "${NAME%%-*}"
+          CODE=$(( ${MA:-0} * 10000 + ${MI:-0} * 100 + ${PA:-0} ))
+          test "$CODE" -gt 0
+          sed -i -e "s/^version\/code=.*/version\/code=${CODE}/" -e "s/^version\/name=.*/version\/name=\"${NAME}\"/" export_presets.cfg
+          grep -n '^version/' export_presets.cfg
+
+      - name: Export desktop
+        run: |
+          set -euo pipefail
+          mkdir -p build/windows build/linux
+          touch build/.gdignore
+          godot --headless --path . --export-release "Windows Desktop" build/windows/GwentScoreTracker.exe
+          godot --headless --path . --export-release "Linux" build/linux/GwentScoreTracker.x86_64
+          for d in build/windows build/linux; do test "$(ls -A "$d" | wc -l)" -eq 1; done
+
+      - name: Export Android (release key)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::warning::Android signing secrets not set; no APK attached to this release."
+            exit 0
+          fi
+          KS="$RUNNER_TEMP/release.keystore"
+          trap 'rm -f "$KS"' EXIT
+          echo "$KEYSTORE_B64" | base64 -d > "$KS"
+          mkdir -p build/android
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KEY_ALIAS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KEY_PASSWORD"
+          godot --headless --path . --export-release "Android" build/android/GwentScoreTracker.apk
+          test -s build/android/GwentScoreTracker.apk
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp LICENSE README.md build/windows/
+          cp LICENSE README.md build/linux/
+          chmod +x build/linux/GwentScoreTracker.x86_64
+          (cd build/windows && zip -q -9 "../../dist/GwentScoreTracker-${TAG}-windows-x86_64.zip" *)
+          tar -C build/linux -czf "dist/GwentScoreTracker-${TAG}-linux-x86_64.tar.gz" .
+          if [ -f build/android/GwentScoreTracker.apk ]; then
+            cp build/android/GwentScoreTracker.apk "dist/GwentScoreTracker-${TAG}-android-arm64.apk"
+          fi
+          (cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" dist/* --clobber -R "$GITHUB_REPOSITORY"
+          echo "Attached $(ls dist | grep -vc SHA256SUMS) build(s) to \`$TAG\`." >> "$GITHUB_STEP_SUMMARY"

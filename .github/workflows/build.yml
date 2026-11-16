@@ -1,5 +1,5 @@
-# Tests + web and desktop (Windows/Linux) exports on every push / PR.
-# Desktop binaries for a published release are attached by desktop-release.yml.
+# Tests + web, desktop (Windows/Linux) and Android exports on every push / PR.
+# Signed binaries for a published release are attached by release-assets.yml.
 # Deploys when main changes (a merged release PR, see release-pr.yml):
 #   - DigitalOcean App Platform: the export is force-pushed to the `web-deploy`
 #     branch, which the App Platform static site (.do/app.yaml) auto-deploys.
@@ -24,36 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The Godot version is pinned in .godot-version (e.g. "4.7.2-stable") so
-      # workflows/godot-update.yml can bump it without editing a workflow file.
-      - name: Read Godot version
-        run: |
-          set -euo pipefail
-          PIN=$(tr -d '[:space:]' < .godot-version)
-          echo "GODOT_VERSION=${PIN%-*}" >> "$GITHUB_ENV"
-          echo "GODOT_RELEASE=${PIN##*-}" >> "$GITHUB_ENV"
-
-      - name: Cache Godot
-        uses: actions/cache@v6
-        with:
-          path: ~/godot
-          key: godot-${{ hashFiles('.godot-version') }}
-
-      - name: Install Godot and export templates
-        run: |
-          set -euo pipefail
-          V="${GODOT_VERSION}-${GODOT_RELEASE}"
-          BASE="https://github.com/godotengine/godot-builds/releases/download/${V}"
-          mkdir -p ~/godot && cd ~/godot
-          if [ ! -x godot ]; then
-            curl -fsSL -o godot.zip "${BASE}/Godot_v${V}_linux.x86_64.zip"
-            unzip -q godot.zip && mv "Godot_v${V}_linux.x86_64" godot && rm godot.zip
-            curl -fsSL -o templates.tpz "${BASE}/Godot_v${V}_export_templates.tpz"
-            unzip -q templates.tpz && rm templates.tpz
-          fi
-          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}"
-          mkdir -p "$T" && cp -r ~/godot/templates/. "$T"/
-          echo "$HOME/godot" >> "$GITHUB_PATH"
+      # Godot version pinned in .godot-version (bumped by godot-update.yml);
+      # see .github/actions/setup-godot.
+      - uses: ./.github/actions/setup-godot
 
       - name: Import assets
         run: godot --headless --path . --import
@@ -116,6 +89,28 @@ jobs:
             test "$(ls -A "$d" | wc -l)" -eq 1
           done
 
+      # Test APK, signed with a throwaway key made for this run (it can't
+      # update an installed release build). Release APKs are signed with the
+      # real key in release-assets.yml.
+      - name: Export Android (test signing)
+        run: |
+          set -euo pipefail
+          mkdir -p build/android
+          KS="$RUNNER_TEMP/ci-test.keystore"
+          keytool -genkeypair -keystore "$KS" -alias ci -keyalg RSA -keysize 2048 -validity 7 \
+            -storepass ci-test-pass -keypass ci-test-pass -dname "CN=Gwent Score Tracker CI test build"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER=ci
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=ci-test-pass
+          godot --headless --path . --export-release "Android" build/android/GwentScoreTracker.apk
+          test -s build/android/GwentScoreTracker.apk
+          rm -f "$KS"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gwent-android-test
+          path: build/android/GwentScoreTracker.apk
+
       - uses: actions/upload-artifact@v7
         with:
           name: gwent-desktop
@@ -159,6 +154,37 @@ jobs:
         with:
           name: gwent-web
           path: site/public
+
+      - uses: actions/checkout@v7
+        with:
+          path: src
+          sparse-checkout: deploy
+
+      # Android download page: the release-signed APK from the latest GitHub
+      # Release (attached by release-assets.yml), verified against its
+      # SHA256SUMS. Never the per-run test APK: its key changes every build,
+      # so Android would refuse it as an update.
+      - name: Add the Android download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dl site/public/download
+          if ! gh release download -R "$GITHUB_REPOSITORY" -D dl --pattern '*-android-arm64.apk' --pattern SHA256SUMS 2>/dev/null \
+              || ! ls dl/*-android-arm64.apk >/dev/null 2>&1; then
+            echo "::warning::No release-signed APK in the latest release; the download page shows 'not available yet'."
+            sed -e 's/{{TAG}}/not released yet/' -e 's/{{SHA256}}/-/' -e 's/{{AVAILABLE}}/hidden/' \
+              src/deploy/download.html > site/public/download/index.html
+            exit 0
+          fi
+          APK=$(ls dl/*-android-arm64.apk | head -n1)
+          (cd dl && grep " $(basename "$APK")\$" SHA256SUMS | sha256sum -c -)
+          TAG=$(basename "$APK" | sed -E 's/^GwentScoreTracker-(.*)-android-arm64\.apk$/\1/')
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          cp "$APK" site/public/download/GwentScoreTracker.apk
+          sed -e "s/{{TAG}}/${TAG}/g" -e "s/{{SHA256}}/${SHA}/" -e 's/{{AVAILABLE}}//' \
+            src/deploy/download.html > site/public/download/index.html
+          echo "Android ${TAG} (sha256 ${SHA}) added to /download/." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to the web-deploy branch
         env:

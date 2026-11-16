@@ -48,6 +48,22 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_resized)
 	_on_resized()
 	_refresh()
+	if OS.has_feature("android"):
+		_start_redraw_heartbeat()
+
+
+## Low-processor mode (project setting) only redraws when something changes,
+## which saves battery. On Android a frame drawn before the surface is ready
+## (at start-up or when returning from the background) is lost, leaving a
+## blank screen until the first touch. A 1 Hz redraw makes the UI appear within
+## a second whatever the timing, at a fraction of continuous rendering's cost.
+func _start_redraw_heartbeat() -> void:
+	var t := Timer.new()
+	t.name = "RedrawHeartbeat"
+	t.wait_time = 1.0
+	t.autostart = true
+	t.timeout.connect(queue_redraw)
+	add_child(t)
 
 
 # --- layout -------------------------------------------------------------------
@@ -194,6 +210,15 @@ func _build_settings() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(hint)
 	_top_button(vb, "New match (keeps names and factions)", "Settings_NewMatch", &"new_match")
+	if OS.has_feature("web"):
+		# Fixed, same-site link (no user data in it): the Android download page.
+		var get_app := Button.new()
+		get_app.text = "Get the Android app"
+		get_app.name = "Settings_AndroidApp"
+		get_app.custom_minimum_size = Vector2(0, 44)
+		get_app.focus_mode = Control.FOCUS_NONE
+		get_app.pressed.connect(func() -> void: OS.shell_open("download/"))
+		vb.add_child(get_app)
 	var about := Label.new()
 	about.text = "%s\nVersion %s" % [ABOUT_TEXT, ProjectSettings.get_setting("application/config/version", "")]
 	about.theme_type_variation = &"MutedLabel"
@@ -349,6 +374,21 @@ func _after_change() -> void:
 			_selected = {}
 	SaveStore.save_state(state)
 	_refresh()
+
+
+## Android back button / gesture (quit_on_go_back is off in project.godot):
+## close Settings, then drop the card selection, then leave the app. The match
+## is already saved after every change.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if _settings != null and _settings.visible:
+		do_action(&"close_settings")
+	elif not _selected.is_empty():
+		_selected = {}
+		_refresh()
+	else:
+		get_tree().quit()
 
 
 func _unhandled_input(event: InputEvent) -> void:

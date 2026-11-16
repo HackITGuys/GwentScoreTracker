@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#1a110a">
+<title>Gwent Score Tracker for Android</title>
+<!-- Template: build.yml fills in {{TAG}}, {{SHA256}} and {{AVAILABLE}} when deploying. -->
+<style>
+  body { margin: 0; padding: 24px; background: #1a110a; color: #f2e6d0; font: 18px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { color: #d4af37; font-size: 1.6rem; margin: 0 0 4px; }
+  .muted { color: #b8a68e; font-size: 0.9rem; }
+  .button { display: inline-block; margin: 16px 0; padding: 14px 22px; border-radius: 8px; background: #d4af37; color: #1a110a; font-weight: 700; text-decoration: none; }
+  .hidden { display: none; }
+  code { word-break: break-all; background: #2a1c11; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+  ol { padding-left: 1.2em; }
+  a { color: #f5d77f; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gwent Score Tracker for Android</h1>
+  <p class="muted">Version {{TAG}} &middot; Android 7 or newer, 64-bit (arm64)</p>
+
+  <div class="{{AVAILABLE}}">
+    <a class="button" href="GwentScoreTracker.apk" download>Download the APK</a>
+    <p class="muted">SHA-256: <code>{{SHA256}}</code></p>
+    <h2>Installing</h2>
+    <ol>
+      <li>Download the APK on your phone or tablet.</li>
+      <li>Open it. Android will ask you to allow installs from your browser or file manager; allow it for this install.</li>
+      <li>Tap <strong>Install</strong>. Later versions from this page install as updates and keep your match.</li>
+    </ol>
+    <p class="muted">The app needs no permissions: no internet, storage or contacts access. Your match is stored only inside the app.</p>
+  </div>
+
+  <p><a href="../">Use it in the browser instead</a> &middot;
+     <a href="https://github.com/HackITGuys/GwentScoreTracker/releases/latest">Windows and Linux downloads</a></p>
+  <p class="muted">Fan-made. Not affiliated with or endorsed by CD PROJEKT. The Witcher and Gwent are trademarks of CD PROJEKT S.A.</p>
+</main>
+</body>
+</html>

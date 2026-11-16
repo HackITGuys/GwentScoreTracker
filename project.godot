@@ -16,13 +16,13 @@ config/version="2.0.0"
 run/main_scene="res://scenes/main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="GwentScoreTracker"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
-config/disable_project_settings_override=false
-config/disable_project_settings_override.template=true
 run/low_processor_mode=true
 boot_splash/bg_color=Color(0.101961, 0.0666667, 0.0392157, 1)
 boot_splash/show_image=false
+config/icon="res://icon.svg"
+config/disable_project_settings_override.template=true
 
 [display]
 
@@ -31,7 +31,6 @@ window/size/viewport_height=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=6
-window/energy_saving/keep_screen_on=true
 
 [gui]
 
@@ -41,4 +40,5 @@ common/drop_mouse_on_gui_input_disabled=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.101961, 0.0666667, 0.0392157, 1)
