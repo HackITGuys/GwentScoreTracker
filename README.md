@@ -144,7 +144,7 @@ The setup matches the Spell-Tower project:
 - **Deploy:** merging the release PR runs `build.yml` on `main`, which force-pushes the web export to the **`web-deploy`** branch under `public/`. The deploy also adds `public/download/`: the release-signed APK from the latest GitHub Release (checked against its `SHA256SUMS`) and a download page. Windows and Linux downloads stay on GitHub Releases to keep within DigitalOcean's free-tier transfer limit. DigitalOcean App Platform ([.do/app.yaml](.do/app.yaml)) redeploys gwent.hackitguys.com from that branch.
 - **Upkeep:** [godot-update.yml](.github/workflows/godot-update.yml) opens a PR when a Godot patch release is out (and an issue for a new minor version). [Dependabot](.github/dependabot.yml) keeps the actions up to date.
 
-**One-time DigitalOcean switch:** the app used to serve `index.html` from `main`. After the first `web-deploy` push, point the existing app at branch `web-deploy` with output directory `public`. Use the control panel or `doctl apps update <app-id> --spec .do/app.yaml`. Until then, the site keeps serving whatever `main` had at its last deploy.
+**DigitalOcean app:** the static site builds from branch `web-deploy`, serves its `/public` folder (`source_dir`) with `environment_slug: html`, and has `deploy_on_push` on. [.do/app.yaml](.do/app.yaml) mirrors the live spec. Apply changes with `doctl apps update <app-id> --spec .do/app.yaml` or under *Settings → App Spec*. Keep the app and component names, because the ingress rule refers to them.
 
 **Repository settings needed:**
 - Under *Actions → General*, allow GitHub Actions to create and approve pull requests (for release-pr and godot-update).
