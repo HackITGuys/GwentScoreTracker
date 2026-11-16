@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432">
+  <!-- Adaptive icon foreground: launchers mask to roughly the inner 288 px, so the emblem stays inside it. -->
+  <circle cx="216" cy="216" r="118" fill="none" stroke="#d4af37" stroke-width="18"/>
+  <path d="M262 170 A64 64 0 1 0 273 234 L273 223 L222 223" fill="none" stroke="#f5d77f" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

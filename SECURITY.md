@@ -60,6 +60,18 @@ Please report vulnerabilities privately through GitHub's *Security → Report a 
 - **Verify downloads** against the `SHA256SUMS` file attached to each GitHub Release.
 - **Code signing** isn't set up yet. Signing the Windows executable (Authenticode) and enabling `codesign/enable` in `export_presets.cfg` would let Windows verify the publisher and reduce SmartScreen and antivirus warnings, which embedded-PCK executables sometimes trigger.
 
+## Android app
+
+- **No permissions.** The APK requests none, not even `INTERNET`, so it can't send data anywhere.
+- **Private storage.** The save lives in the app's private storage, which other apps can't read. Android backup is disabled (`user_data_backup/allow=false`), so it isn't copied to cloud backups, and it's removed on uninstall.
+- **Same game data.** The PCK inside the APK is covered by the APK signature; the save handling is the same as above.
+- **Release signing.**
+  - Release APKs are signed in CI with a key that exists only in GitHub repository secrets. It's written to a temporary file during the job and deleted afterwards.
+  - `*.keystore`, `*.jks` and `export_credentials.cfg` are git-ignored.
+  - Test APKs from ordinary pushes use a throwaway key created for each run, so they can never pass as release updates.
+- **Verified downloads.** The APK served at `/download/` is copied from the latest GitHub Release only after its SHA-256 matches that release's `SHA256SUMS`. The page shows the hash.
+- **Back button.** It only closes dialogs or exits; it never discards the match.
+
 ## Web build
 
 - **Static files only.** The web build is HTML, JS, WASM and a PCK, served from DigitalOcean App Platform.
@@ -71,5 +83,5 @@ Please report vulnerabilities privately through GitHub's *Security → Report a 
 
 - **Godot binaries** are downloaded from the official `godotengine/godot-builds` releases at the version pinned in `.godot-version`. Updates arrive as pull requests from `godot-update.yml`.
 - **Third-party actions** in the workflows are kept up to date by Dependabot (weekly, grouped).
-- **Least privilege.** Only the deploy and release jobs get `contents: write`. `web-deploy` is a generated branch that is rebuilt as a single commit on each deploy.
+- **Least privilege.** Only the deploy and release jobs get `contents: write`. The Android signing secrets are only exposed to the release-assets job. `web-deploy` is a generated branch that is rebuilt as a single commit on each deploy.
 - **Protected `main`.** `main` only changes through release pull requests.

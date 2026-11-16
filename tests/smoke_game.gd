@@ -147,6 +147,18 @@ func _play_versus() -> void:
 	_check(not (_node("P0_Gem1") as Control).is_visible_in_tree(), "gems hidden")
 	_press("Settings_Close")
 
+	# Android back button: closes Settings first, then clears the selection.
+	_press("SettingsButton")
+	_main.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	_check(not (_node("Settings") as Control).visible, "back closes settings")
+	_press("P0_Unit3")
+	_press("P0_close_U0")
+	_check(not _main._selected.is_empty(), "card selected")
+	_main.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	_check(_main._selected.is_empty(), "back clears the card selection")
+	_check((_main.find_child("Settings_AndroidApp", true, false) != null) == OS.has_feature("web"),
+		"'Get the Android app' link only in the web build")
+
 
 func _play_solo() -> void:
 	print("- solo board through the UI")

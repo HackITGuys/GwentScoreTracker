@@ -4,6 +4,7 @@ A score tracker for playing **Gwent, the card game from *The Witcher 3: Wild Hun
 
 - **in the browser** at <https://gwent.hackitguys.com>. The layout is designed for tablets but also works on phones.
 - **as a desktop app** on Windows and Linux: one self-contained executable, with no installer and no network access.
+- **as an Android app** (Android 7+, 64-bit): download it from <https://gwent.hackitguys.com/download/>. It needs no permissions.
 
 > Fan-made. Not affiliated with or endorsed by CD PROJEKT. *The Witcher* and *Gwent* are trademarks of CD PROJEKT S.A. The faction colours and emblems in this app are original designs.
 
@@ -41,6 +42,7 @@ For each **unit** card the strength is calculated in this order:
 - **Scorch** destroys every unit card that shares the highest current strength on the battlefield, on both sides. It only works in 2-player mode.
 - **Clear sky** removes all weather.
 - **Undo** reverts the last change, up to 50 steps, including End round and New match. On desktop you can also press Ctrl+Z.
+- **Android back button:** closes Settings, then clears the selected card, then leaves the app. The match is saved after every change.
 
 ### Rounds and the match
 
@@ -72,6 +74,7 @@ Pick a faction for each player to theme their column. Factions that affect scori
 
 The match is saved automatically on the device:
 - **Web:** the browser's storage for the site.
+- **Android:** the app's private storage. It isn't included in Android backups and is removed when the app is uninstalled.
 - **Windows:** `%APPDATA%\GwentScoreTracker\`
 - **Linux:** `~/.local/share/GwentScoreTracker/`
 
@@ -89,6 +92,9 @@ scripts/logic/   rules.gd (scoring and rounds), sanitize.gd (input and save vali
                  save_store.gd (JSON persistence), factions.gd, faction_theme.gd
 tests/           run_tests.gd (unit), smoke_game.gd (UI play-through), screenshot.gd (dev)
 tools/           serve_web.py (local web server)
+icons/           Android adaptive launcher icons
+deploy/          download.html (Android download page template, filled in by CI)
+.github/actions/ setup-godot (shared CI step: pinned Godot + templates + Android SDK paths)
 docs/REVIEW.md   review of the previous HTML version
 SECURITY.md      threat model and hardening
 ```
@@ -115,9 +121,12 @@ mkdir -p build && touch build/.gdignore
 godot --headless --path . --export-release "Web" build/web/index.html
 godot --headless --path . --export-release "Windows Desktop" build/windows/GwentScoreTracker.exe
 godot --headless --path . --export-release "Linux" build/linux/GwentScoreTracker.x86_64
+godot --headless --path . --export-release "Android" build/android/GwentScoreTracker.apk
 python tools/serve_web.py          # http://localhost:8060
 python tools/serve_web.py --lan    # test on a real tablet on the same Wi-Fi
 ```
+
+**Android** needs the Android SDK (install Android Studio and let its setup wizard download the SDK), with Godot's *Editor Settings → Export → Android* pointing at the SDK and a Java 17 JDK. Local exports are signed with Godot's debug keystore unless you set a release keystore.
 
 The web export is single-threaded, so it needs no special headers: any static web server works, including `python -m http.server`. The desktop exports embed the game data, so each one is a single file.
 
@@ -131,13 +140,22 @@ The setup matches the Spell-Tower project:
 - **`main`**: protected. It only changes through release pull requests.
 - **Release:** publish a GitHub Release (for example `v2.0.0`):
   - [release-pr.yml](.github/workflows/release-pr.yml) opens a *Release* PR from `develop` to `main`.
-  - [desktop-release.yml](.github/workflows/desktop-release.yml) attaches `GwentScoreTracker-<tag>-windows-x86_64.zip`, `…-linux-x86_64.tar.gz` and `SHA256SUMS` to the release.
-- **Deploy:** merging the release PR runs `build.yml` on `main`, which force-pushes the web export to the **`web-deploy`** branch under `public/`. DigitalOcean App Platform ([.do/app.yaml](.do/app.yaml)) redeploys gwent.hackitguys.com from that branch.
+  - [release-assets.yml](.github/workflows/release-assets.yml) attaches `GwentScoreTracker-<tag>-windows-x86_64.zip`, `…-linux-x86_64.tar.gz`, `…-android-arm64.apk` and `SHA256SUMS` to the release. Android's `versionCode` comes from the tag: `v2.3.4` becomes `20304`.
+- **Deploy:** merging the release PR runs `build.yml` on `main`, which force-pushes the web export to the **`web-deploy`** branch under `public/`. The deploy also adds `public/download/`: the release-signed APK from the latest GitHub Release (checked against its `SHA256SUMS`) and a download page. Windows and Linux downloads stay on GitHub Releases to keep within DigitalOcean's free-tier transfer limit. DigitalOcean App Platform ([.do/app.yaml](.do/app.yaml)) redeploys gwent.hackitguys.com from that branch.
 - **Upkeep:** [godot-update.yml](.github/workflows/godot-update.yml) opens a PR when a Godot patch release is out (and an issue for a new minor version). [Dependabot](.github/dependabot.yml) keeps the actions up to date.
 
 **One-time DigitalOcean switch:** the app used to serve `index.html` from `main`. After the first `web-deploy` push, point the existing app at branch `web-deploy` with output directory `public`. Use the control panel or `doctl apps update <app-id> --spec .do/app.yaml`. Until then, the site keeps serving whatever `main` had at its last deploy.
 
-**Repository settings needed:** under *Actions → General*, allow GitHub Actions to create and approve pull requests (for release-pr and godot-update).
+**Repository settings needed:**
+- Under *Actions → General*, allow GitHub Actions to create and approve pull requests (for release-pr and godot-update).
+- Under *Secrets and variables → Actions*, add the Android release key as `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_ALIAS` and `ANDROID_KEYSTORE_PASSWORD`. Without them, releases have no APK. To create the key once:
+
+  ```sh
+  keytool -genkeypair -v -keystore gwent-release.keystore -alias gwent -keyalg RSA -keysize 4096 -validity 10000
+  base64 -w0 gwent-release.keystore     # value for ANDROID_KEYSTORE_BASE64 (PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("gwent-release.keystore")))
+  ```
+
+  Back the keystore and password up somewhere safe, outside the repository. Android only installs updates signed with the same key; if it's lost, users must uninstall (losing their saved match) to get a new version. Pushes to `develop` also build a test APK, signed with a throwaway key, as the `gwent-android-test` artifact.
 
 ---
 
@@ -148,6 +166,7 @@ Details are in [SECURITY.md](SECURITY.md).
 - **Player names:** the only free text. Limited to 20 characters; control, bidi and zero-width characters are removed; only letters, digits, spaces and `. ' - _` are allowed.
 - **Saves are data only.** They are JSON, size-capped, and rebuilt field by field against allowlists. They are never loaded as resources or code, and a tampered or corrupt save falls back to a fresh match.
 - **Desktop builds** embed their data, ignore `override.cfg`, store saves only in the per-user data folder (owner-only permissions on Linux), use only the built-in font, and make no network connections.
+- **Android** requests no permissions (not even internet), keeps the save in private app storage with backup disabled, and is signed with a release key held only in GitHub secrets.
 
 ## License
 

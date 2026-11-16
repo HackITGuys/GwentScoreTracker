@@ -1,0 +1,52 @@
+# Installs the Godot version pinned in .godot-version (e.g. "4.7.2-stable")
+# plus its export templates, and points Godot's Android exporter at the
+# runner's preinstalled Android SDK and Java 17. Used by build.yml and
+# release-assets.yml.
+name: Set up Godot
+description: Install the pinned Godot editor and export templates (official godot-builds releases)
+
+runs:
+  using: composite
+  steps:
+    - name: Read Godot version
+      shell: bash
+      run: |
+        set -euo pipefail
+        PIN=$(tr -d '[:space:]' < .godot-version)
+        echo "GODOT_VERSION=${PIN%-*}" >> "$GITHUB_ENV"
+        echo "GODOT_RELEASE=${PIN##*-}" >> "$GITHUB_ENV"
+
+    - name: Cache Godot
+      uses: actions/cache@v6
+      with:
+        path: ~/godot
+        key: godot-${{ hashFiles('.godot-version') }}
+
+    - name: Install Godot and export templates
+      shell: bash
+      run: |
+        set -euo pipefail
+        V="${GODOT_VERSION}-${GODOT_RELEASE}"
+        BASE="https://github.com/godotengine/godot-builds/releases/download/${V}"
+        mkdir -p ~/godot && cd ~/godot
+        if [ ! -x godot ]; then
+          curl -fsSL -o godot.zip "${BASE}/Godot_v${V}_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${V}_linux.x86_64" godot && rm godot.zip
+          curl -fsSL -o templates.tpz "${BASE}/Godot_v${V}_export_templates.tpz"
+          unzip -q templates.tpz && rm templates.tpz
+        fi
+        T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}"
+        mkdir -p "$T" && cp -r ~/godot/templates/. "$T"/
+        echo "$HOME/godot" >> "$GITHUB_PATH"
+
+    - name: Point Godot at the Android SDK and Java 17
+      shell: bash
+      run: |
+        set -euo pipefail
+        SERIES=$(echo "$GODOT_VERSION" | cut -d. -f1,2)
+        mkdir -p ~/.config/godot
+        printf '%s\n' '[gd_resource type="EditorSettings" format=3]' '' '[resource]' \
+          "export/android/android_sdk_path = \"${ANDROID_HOME:-/usr/local/lib/android/sdk}\"" \
+          "export/android/java_sdk_path = \"${JAVA_HOME_17_X64:-$JAVA_HOME}\"" \
+          > ~/.config/godot/editor_settings-${SERIES}.tres
+        cat ~/.config/godot/editor_settings-${SERIES}.tres
